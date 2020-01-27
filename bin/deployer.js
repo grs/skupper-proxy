@@ -17,6 +17,7 @@ var enlist = require("../lib/enlist.js");
 var kubernetes = require('../lib/kubernetes.js').client();
 var labels = require("../lib/labels.js");
 var log = require("../lib/log.js").logger();
+var metrics = require("../lib/metrics.js");
 var owner_ref = require("../lib/owner_ref.js");
 var scaling = require("../lib/statefulset_scaling.js")();
 var service_utils = require("../lib/service_utils.js");
@@ -24,6 +25,7 @@ var service_sync = require("../lib/service_sync.js");
 
 function Deployer(service_account, service_sync_origin) {
     this.service_account = service_account;
+    this.origin = service_sync_origin;
 
     this.service_watcher = kubernetes.watch('services');
     this.service_watcher.on('updated', this.services_updated.bind(this));
@@ -40,6 +42,7 @@ function Deployer(service_account, service_sync_origin) {
     if (!process.env.DISABLE_ENLIST_FROM_ANNOTATIONS) {
         this.enlist = enlist();
     }
+    this.metrics_server = metrics.create_server(this.origin, 8080);
 }
 
 function is_success_code(code) {
@@ -534,6 +537,10 @@ Deployer.prototype.deploy = function (service_name, config) {
                             {
                                 name: 'SKUPPER_PROXY_CONFIG',
                                 value: JSON.stringify(config)
+                            },
+                            {
+                                name: 'SKUPPER_SITE_ID',
+                                value: this.origin
                             }
                         ],
                         image: process.env.SKUPPER_PROXY_IMAGE || 'quay.io/skupper/proxy',
