@@ -14,6 +14,7 @@
 'use strict';
 
 var bridges = require('../lib/bridges.js');
+var multicast = require('../lib/multicast.js');
 var kubernetes = require('../lib/kubernetes.js').client();
 var metrics = require('../lib/metrics.js');
 
@@ -71,12 +72,19 @@ OutgoingBridgeConfig.prototype.updated = function (pods) {
     }
 };
 
-function get_bridging_functions(protocol) {
+function get_bridging_functions(protocol, is_multicast) {
     if (protocol === 'http') {
-        return {
-            ingress: bridges.http_to_amqp,
-            egress: bridges.amqp_to_http
-        };
+        if (is_multicast) {
+            return {
+                ingress: multicast.http_to_amqp,
+                egress: multicast.amqp_to_http
+            };
+        } else {
+            return {
+                ingress: bridges.http_to_amqp,
+                egress: bridges.amqp_to_http
+            };
+        }
     } else if (protocol === 'tcp') {
         return {
             ingress: bridges.tcp_to_amqp,
@@ -107,7 +115,7 @@ function get_target_pod_name(hostname, statefulset) {
 }
 
 function Proxy(config) {
-    var bridging = get_bridging_functions(config.protocol);
+    var bridging = get_bridging_functions(config.protocol, config.multicast);
     if (bridging) {
         if (config.headless === undefined) {
             var address = config.address || config.name;
