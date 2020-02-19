@@ -114,6 +114,7 @@ function Proxy(config) {
             this.ingress = bridging.ingress(Math.max(config.port, 1024), address);
             var _metrics = metrics.create_bridge_metrics(address, config.protocol, process.env.SKUPPER_SITE_ID);
             this.ingress.metrics = _metrics;
+            this.ingress.site_id = process.env.SKUPPER_SITE_ID;
 
             if (config.targets) {
                 this.egress = config.targets.map(function (target) {
