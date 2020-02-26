@@ -57,6 +57,7 @@ OutgoingBridgeConfig.prototype.updated = function (pods) {
         if (this.bridges[host] === undefined) {
             this.bridges[host] = this.factory(this.address, host, this.target_port);
             this.bridges[host].metrics = this.metrics;
+            this.bridges[host].site_id = process.env.SKUPPER_SITE_ID;
         }
         delete removed[host];
     }
