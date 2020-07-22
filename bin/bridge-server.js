@@ -22,8 +22,6 @@ var qdrconf = require('../lib/qdrconf.js');
 var myutils = require('../lib/utils.js');
 var log = require('../lib/log.js').logger();
 
-const http_connector_type = 'org.apache.qpid.dispatch.router.http_connector';
-
 function create_http_connector (attributes) {
     var bridge;
     if (attributes.aggregate) {
@@ -33,9 +31,12 @@ function create_http_connector (attributes) {
     } else {
         bridge = bridges.amqp_to_http(attributes.address, attributes.host, attributes.port);
     }
-    //TODO: enable metrics
-    //bridge.metrics = metrics.create_bridge_metrics(address, 'http', attributes.site_id);
-    bridge.site_id = attributes.site_id;
+    bridge.metrics = metrics.create_bridge_metrics(attributes.address, 'http', attributes.siteId);
+    bridge.siteId = attributes.siteId;
+    bridge.site_id = attributes.siteId;
+    if (attributes.hostOverride) {
+        bridge.hostOverride = attributes.hostOverride
+    }
     return bridge;
 }
 
@@ -48,7 +49,8 @@ function describe_http_connector (object) {
         host: object.host,
         port: object.port,
         address: object.address,
-        site_id: object.site_id,
+        siteId: object.siteId,
+        hostOverride: object.hostOverride
     };
 }
 
@@ -62,9 +64,9 @@ function create_http_listener (attributes) {
     } else {
         bridge = bridges.http_to_amqp(attributes.port, attributes.address);
     }
-    //TODO: enable metrics
-    //bridge.metrics = metrics.create_bridge_metrics(address, 'http', attributes.site_id);
-    bridge.site_id = attributes.site_id;
+    bridge.metrics = metrics.create_bridge_metrics(attributes.address, 'http', attributes.siteId);
+    bridge.siteId = attributes.siteId;
+    bridge.site_id = attributes.siteId;
     return bridge;
 }
 
@@ -76,18 +78,15 @@ function describe_http_listener (object) {
     return {
         port: object.port,
         address: object.address,
-        site_id: object.site_id,
+        siteId: object.siteId,
     };
 }
 
-
-const http2_connector_type = 'org.apache.qpid.dispatch.router.http2_connector';
-
 function create_http2_connector (attributes) {
     var bridge = bridges.amqp_to_http2(attributes.address, attributes.host, attributes.port);
-    //TODO: enable metrics
-    //bridge.metrics = metrics.create_bridge_metrics(address, 'http2', attributes.site_id);
-    bridge.site_id = attributes.site_id;
+    bridge.metrics = metrics.create_bridge_metrics(attributes.address, 'http2', attributes.siteId);
+    bridge.siteId = attributes.siteId;
+    bridge.site_id = attributes.siteId;
     return bridge;
 }
 
@@ -100,16 +99,16 @@ function describe_http2_connector (object) {
         host: object.host,
         port: object.port,
         address: object.address,
-        site_id: object.site_id,
+        siteId: object.siteId,
     };
 }
 
 
 function create_http2_listener (attributes) {
     var bridge = bridges.http2_to_amqp(attributes.port, attributes.address);
-    //TODO: enable metrics
-    //bridge.metrics = metrics.create_bridge_metrics(address, 'http2', attributes.site_id);
-    bridge.site_id = attributes.site_id;
+    bridge.metrics = metrics.create_bridge_metrics(attributes.address, 'http2', attributes.siteId);
+    bridge.siteId = attributes.siteId;
+    bridge.site_id = attributes.siteId;
     return bridge;
 }
 
@@ -121,18 +120,15 @@ function describe_http2_listener (object) {
     return {
         port: object.port,
         address: object.address,
-        site_id: object.site_id,
+        siteId: object.siteId,
     };
 }
 
-
-const tcp_connector_type = 'org.apache.qpid.dispatch.router.tcp_connector';
-
 function create_tcp_connector (attributes) {
     var bridge = bridges.amqp_to_tcp(attributes.address, attributes.host, attributes.port);
-    //TODO: enable metrics
-    //bridge.metrics = metrics.create_bridge_metrics(address, 'tcp', attributes.site_id);
-    bridge.site_id = attributes.site_id;
+    bridge.metrics = metrics.create_bridge_metrics(attributes.address, 'tcp', attributes.siteId);
+    bridge.siteId = attributes.siteId;
+    bridge.site_id = attributes.siteId;
     return bridge;
 }
 
@@ -145,15 +141,15 @@ function describe_tcp_connector (object) {
         host: object.host,
         port: object.port,
         address: object.address,
-        site_id: object.site_id,
+        siteId: object.siteId,
     };
 }
 
 function create_tcp_listener (attributes) {
     var bridge = bridges.tcp_to_amqp(attributes.port, attributes.address);
-    //TODO: enable metrics
-    //bridge.metrics = metrics.create_bridge_metrics(address, 'tcp', attributes.site_id);
-    bridge.site_id = attributes.site_id;
+    bridge.metrics = metrics.create_bridge_metrics(attributes.address, 'tcp', attributes.siteId);
+    bridge.siteId = attributes.siteId;
+    bridge.site_id = attributes.siteId;
     return bridge;
 }
 
@@ -165,7 +161,7 @@ function describe_tcp_listener (object) {
     return {
         port: object.port,
         address: object.address,
-        site_id: object.site_id,
+        siteId: object.siteId,
     };
 }
 
@@ -193,7 +189,7 @@ function EntityManager (typename, configname, constructor, destructor, describer
 EntityManager.prototype.query = function () {
     var result = [];
     for (var name in this.objects) {
-        result.push(myutils.merge(this.describer(this.objects[name]), {name:name, identity:name, type:this.type}));
+        result.push(myutils.merge(this.describer(this.objects[name]), {name:name, identity:name, type:this.typename, metrics: this.objects[name].metrics}));
     }
     return result;
 };
@@ -237,12 +233,12 @@ function index_by_name(a, b) {
 }
 
 function Server(config_file) {
-    var http_connector = new EntityManager('http_connector', 'httpConnectors', create_http_connector, delete_http_connector, describe_http_connector);
-    var http_listener = new EntityManager('http_listener', 'httpListeners', create_http_listener, delete_http_listener, describe_http_listener);
-    var http2_connector = new EntityManager('http2_connector', 'http2Connectors', create_http2_connector, delete_http2_connector, describe_http2_connector);
-    var http2_listener = new EntityManager('http2_listener', 'http2Listeners', create_http2_listener, delete_http2_listener, describe_http2_listener);
-    var tcp_connector = new EntityManager('tcp_connector', 'tcpConnectors', create_tcp_connector, delete_tcp_connector, describe_tcp_connector);
-    var tcp_listener = new EntityManager('tcp_listener', 'tcpListeners', create_tcp_listener, delete_tcp_listener, describe_tcp_listener);
+    var http_connector = new EntityManager('httpConnector', 'httpConnectors', create_http_connector, delete_http_connector, describe_http_connector);
+    var http_listener = new EntityManager('httpListener', 'httpListeners', create_http_listener, delete_http_listener, describe_http_listener);
+    var http2_connector = new EntityManager('http2Connector', 'http2Connectors', create_http2_connector, delete_http2_connector, describe_http2_connector);
+    var http2_listener = new EntityManager('http2Listener', 'http2Listeners', create_http2_listener, delete_http2_listener, describe_http2_listener);
+    var tcp_connector = new EntityManager('tcpConnector', 'tcpConnectors', create_tcp_connector, delete_tcp_connector, describe_tcp_connector);
+    var tcp_listener = new EntityManager('tcpListener', 'tcpListeners', create_tcp_listener, delete_tcp_listener, describe_tcp_listener);
 
     this.typedefs = [http_connector, http_listener, http2_connector, http2_listener, tcp_connector, tcp_listener];
     this.management_server = amqp_mgmt.server();
@@ -253,7 +249,8 @@ function Server(config_file) {
     qdrconf.read_router_config(config_file).then(function (config) {
         log.info('config read: %j', config);
         self.config_updated(config);
-        self.management_server.listen(5677);
+        //self.management_server.listen(5677); //todo: make the mode configurable?
+        self.management_server.connect();
         qdrconf.watch_router_config(config_file, function (error, config) {
             if (error) {
                 log.error('Failed to get config update: %s', error);

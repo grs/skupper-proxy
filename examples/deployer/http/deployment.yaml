@@ -1,10 +1,10 @@
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: http-simple
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       application: http-simple
