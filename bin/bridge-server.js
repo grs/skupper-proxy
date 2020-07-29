@@ -270,6 +270,7 @@ Server.prototype.config_updated = function (config) {
             typedef.update(entities.reduce(index_by_name, {}));
         } else {
             log.info('no %s defined', typedef.configname);
+            typedef.update({});
         }
     });
 };
