@@ -17,6 +17,7 @@ var amqp_mgmt = require('../lib/amqp_mgmt.js');
 var bridges = require('../lib/bridges.js');
 var eventchannel = require('../lib/eventchannel.js');
 var multicast = require('../lib/multicast.js');
+var udp = require('../lib/udp.js');
 var metrics = require('../lib/metrics.js');
 var qdrconf = require('../lib/qdrconf.js');
 var myutils = require('../lib/utils.js');
@@ -165,6 +166,49 @@ function describe_tcp_listener (object) {
     };
 }
 
+function create_udp_connector (attributes) {
+    var bridge = udp.egress(attributes.address, attributes.host, attributes.port, attributes.multicast);
+    bridge.metrics = metrics.create_bridge_metrics(attributes.address, 'udp', attributes.siteId);
+    bridge.siteId = attributes.siteId;
+    bridge.site_id = attributes.siteId;
+    return bridge;
+}
+
+function delete_udp_connector (object) {
+    object.stop();
+}
+
+function describe_udp_connector (object) {
+    return {
+        host: object.host,
+        port: object.port,
+        address: object.address,
+        siteId: object.siteId,
+        mutlicast: object.multicast
+    };
+}
+
+function create_udp_listener (attributes) {
+    var bridge = udp.ingress(attributes.port, attributes.address, attributes.multicast);
+    bridge.metrics = metrics.create_bridge_metrics(attributes.address, 'udp', attributes.siteId);
+    bridge.siteId = attributes.siteId;
+    bridge.site_id = attributes.siteId;
+    return bridge;
+}
+
+function delete_udp_listener (object) {
+    object.stop();
+}
+
+function describe_udp_listener (object) {
+    return {
+        port: object.port,
+        address: object.address,
+        siteId: object.siteId,
+        mutlicast: object.multicast
+    };
+}
+
 function equivalent(a, b) {
     for (var f in a) {
         if (b[f] && a[f] !== b[f]) {
@@ -239,8 +283,10 @@ function Server(config_file) {
     var http2_listener = new EntityManager('http2Listener', 'http2Listeners', create_http2_listener, delete_http2_listener, describe_http2_listener);
     var tcp_connector = new EntityManager('tcpConnector', 'tcpConnectors', create_tcp_connector, delete_tcp_connector, describe_tcp_connector);
     var tcp_listener = new EntityManager('tcpListener', 'tcpListeners', create_tcp_listener, delete_tcp_listener, describe_tcp_listener);
+    var udp_connector = new EntityManager('udpConnector', 'udpConnectors', create_udp_connector, delete_udp_connector, describe_udp_connector);
+    var udp_listener = new EntityManager('udpListener', 'udpListeners', create_udp_listener, delete_udp_listener, describe_udp_listener);
 
-    this.typedefs = [http_connector, http_listener, http2_connector, http2_listener, tcp_connector, tcp_listener];
+    this.typedefs = [http_connector, http_listener, http2_connector, http2_listener, tcp_connector, tcp_listener, udp_connector, udp_listener];
     this.management_server = amqp_mgmt.server();
     var self = this;
     this.typedefs.forEach(function (typedef) {
